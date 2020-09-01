@@ -1,0 +1,10 @@
+[
+	# Valid comment
+	"multi" # Valid comment
+	# Valid comment
+	"line "
+	+ "key" # Valid comment
+	# Valid comment
+] {
+	"bar"
+}

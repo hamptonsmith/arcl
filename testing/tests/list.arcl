@@ -1,0 +1,8 @@
+# Valid comment
+[foo] {
+	# Valid comment
+	- bar
+	# Valid comment
+	- bazz
+	# Valid comment
+}

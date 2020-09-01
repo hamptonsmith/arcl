@@ -1,0 +1,27 @@
+[foo] {
+	[simple string in map] foo
+	[multiline string in map] {
+		"foo"
+		"bar"
+	}
+	[list in map] {
+		- simple string in list
+		- {
+			"multiline string"
+			"in list"
+		}
+		- {
+			[now] map
+			[in] list
+		}
+		- {
+			- list
+			- in
+			- list
+		}
+	}
+	[map in map] {
+		[in] map
+		[on] map
+	}
+}

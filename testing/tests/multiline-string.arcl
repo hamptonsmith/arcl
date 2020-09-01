@@ -1,0 +1,8 @@
+[foo] {
+	# Valid comment
+	"multi" # Valid comment
+	# Valid comment
+	"line"
+	+ " string" # Valid comment
+	# Valid comment
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@shieldsbetter/arcl",
+  "version": "0.0.1",
+  "description": "A reasonable configuration language.",
+  "main": "index.js",
+  "scripts": {
+    "build": "nearleyc grammar.ne -o grammar.ne.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "moo": "^0.5.1",
+    "nearley": "^2.19.6"
+  },
+  "devDependencies": {},
+  "author": "Hampton Smith",
+  "license": "ISC"
+}

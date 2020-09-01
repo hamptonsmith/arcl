@@ -1,0 +1,9 @@
+# Valid comment
+[foo] {
+	# Valid comment
+	[bar] bazz
+	# Valid comment
+	[waldo] plugh
+	# Valid comment
+}
+# Valid comment
