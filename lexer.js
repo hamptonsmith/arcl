@@ -2,6 +2,7 @@
 
 const moo = require('moo');
 
+const identifier = /(?:[A-Za-z0-9][A-Za-z0-9_\-]*)/;
 const nl = { match: /\n/, lineBreaks: true };
 const placeholder = /<<[^>\n]+>>/;
 const stringLiteral = /\"(?:(?:[^\n\"\\])|(?:\\.))+\"/;
@@ -10,13 +11,14 @@ const ws = /[ \t]+/;
 const lexer = moo.states({
 	main: {
 		closeCurly: '}',
-		directive: { match: /@(?:[A-Za-z0-9_]+)/, push: 'line' },
+		directive: /@(?:[A-Za-z0-9_]+)/,
 		hash: { match: '#', push: 'line' },
+		identifier,
 		minus: { match: '-', push: 'line' },
 		nl,
 		openCurly: { match: '{', push: 'line' },
 		openSquare: { match: '[', push: 'key' },
-		placeholder,
+		openAngled: { match: '<<', push: 'placeholder' },
 		plus: '+',
 		stringLiteral,
 		ws: /[ \t]+/
@@ -24,8 +26,8 @@ const lexer = moo.states({
 
 	key: {
 		closeSquare: { match: ']', next: 'line' },
-		simpleContent: /(?:(?:[^\n\]\\])|(?:\\.))+/,
-		nl: Object.assign({}, nl, { next: 'multilineKey' })
+		nl: Object.assign({}, nl, { next: 'multilineKey' }),
+		simpleContent: /(?:(?:[^\n\]\\])|(?:\\.))+/
 	},
 	line: {
 		line: /[^ \t\{\n][^\n]*/,
@@ -35,12 +37,19 @@ const lexer = moo.states({
 	},
 	multilineKey: {
 		closeSquare: { match: ']', pop: true },
+		hash: { match: '#', push: 'line' },
 		plus: '+',
 		nl,
 		placeholder,
 		stringLiteral,
-		ws,
-		hash: { match: '#', push: 'line' },
+		ws
+	},
+	placeholder: {
+		closeAngled: { match: '>>', pop: true },
+		dot: '.',
+		identifier,
+		star: '*',
+		stringLiteral
 	}
 });
 

@@ -1,0 +1,19 @@
+@template [foo] {
+	"foo: {" + <<foo>> + "}"
+	"bar: " + <<bar.text>>
+	<<bazz>>
+	+ <<plugh>>
+	<<waldo>> + " (waldo)"
+}
+
+[bar] {
+	@from foo
+
+	[foo] foo value
+	[bar] {
+		[text] bar text value
+	}
+	[bazz] bazz value
+	[plugh] plugh value
+	[waldo] waldo value
+}

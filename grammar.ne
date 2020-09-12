@@ -12,23 +12,11 @@ blockEntries ->
   | untaggedEntry {% ([untaggedEntry]) => untaggedEntry %}
   | stringExpressionLine {% ([stringExpressionLine]) => stringExpressionLine %}
   | %nl {% () => ({ type: 'blankLine' }) %}
+  | "@from" path {% ([from, path]) => ({ type: 'from', path }) %}
 
 comment -> "#" %line:? %nl {% ([hash, line]) => ({
 	type: 'comment', value: line.value
 })%}
-
-taggedEntry -> "[" key "]" value {% ([open, key, close, value]) => ({
-	type: 'taggedValue', key, value
-})%}
-
-untaggedEntry -> "-" value {% ([bullet, value]) => ({
-	type: 'untaggedValue', value
-})%}
-
-value ->
-	%line:? %nl {% ([line]) => ({ type: 'simpleString', value: line || ''}) %}
-  | "{" %line:? %nl blockContents:? "}" %line:? %nl {%
-  		([open, line, nl, content]) => ({ type: 'block', line, content })%}
 
 key ->
 	%line:? %nl (stringExpressionLine | comment):* {%
@@ -41,9 +29,42 @@ key ->
 		value: simpleContent
   	})%}
 
+path -> pathComponent ("." pathComponent):* {%
+	([head, others]) => ({
+		type: 'path',
+		components: [head, ...others.map(([dot, other]) => other)]
+	})
+%}
+
+pathComponent ->
+	%identifier {% ([identifier]) => ({ type: 'identifier', identifier }) %}
+  | %star {% ([star]) => ({ type: 'star'}) %}
+  | %stringLiteral {%
+  		([stringLiteral]) => ({ type: 'stringLiteral', stringLiteral })%}
+
+placeholder -> "<<" path ">>" {% ([open, path, close]) => ({
+	type: 'placeholder',
+	path
+}) %}
+
 stringExpressionLine ->
-	(%stringLiteral | "+"):+ (comment | %nl) {% ([elements, comment, nl]) => ({
-		type: 'multilineStringLine',
-		comment,
-		elements: elements.map(([element]) => element)
-	})%}
+	(%stringLiteral | "+" | placeholder):+ (comment | %nl) {%
+			([elements, comment, nl]) => ({
+				type: 'multilineStringLine',
+				comment,
+				elements: elements.map(([element]) => element)
+			})%}
+
+taggedEntry -> "@template":? "[" key "]" value {%
+		([templateAnnotation, open, key, close, value]) => ({
+			type: 'taggedValue', key, templateAnnotation, value
+		})%}
+
+untaggedEntry -> "-" value {% ([bullet, value]) => ({
+	type: 'untaggedValue', value
+})%}
+
+value ->
+	%line:? %nl {% ([line]) => ({ type: 'simpleString', value: line || ''}) %}
+  | "{" %line:? %nl blockContents:? "}" %line:? %nl {%
+  		([open, line, nl, content]) => ({ type: 'block', line, content })%}
