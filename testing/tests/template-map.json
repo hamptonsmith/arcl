@@ -1,0 +1,14 @@
+{
+	"b": {
+		"aa": "baa val",
+		"ab": {
+			"aba": "baba val",
+			"abb": "abb val"
+		},
+		"ac": [
+			"baca",
+			"bacb"
+		],
+		"ad": "ad val"
+	}
+}

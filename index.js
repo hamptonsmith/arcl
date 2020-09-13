@@ -6,6 +6,8 @@ const lexer = require('./lexer.js');
 const lodash = require('lodash');
 const nearley = require("nearley");
 
+const LITERAL_UNDEFINED = Symbol('undefined');
+
 module.exports = input => {
 	const parser = new nearley.Parser(nearley.Grammar.fromCompiled(grammar));
 	parser.feed(input);
@@ -57,6 +59,7 @@ function evaluateBlockContentsAst(ast, templates, topLevel, argument) {
 	let value;
 	let parent;
 	let reachedContent = false;
+	let literalUndefined = false;
 	for (let item of ast) {
 		switch (item.type) {
 			case 'blankLine':
@@ -92,6 +95,10 @@ function evaluateBlockContentsAst(ast, templates, topLevel, argument) {
 				}
 				break;
 			}
+			case 'undefined': {
+				literalUndefined = item;
+				break;
+			}
 			case 'untaggedValue': {
 				reachedContent = true;
 				value = appendUntaggedValueAst(value, item, argument);
@@ -104,8 +111,20 @@ function evaluateBlockContentsAst(ast, templates, topLevel, argument) {
 		}
 	}
 
+	if (literalUndefined && parent) {
+		throw error('Explicit undefined value cannot have a @from clause.',
+				literalUndefined);
+	}
+
+	if (literalUndefined && value) {
+		throw error('Explicit undefined must be sole entry.', literalUndefined);
+	}
+
 	let result;
-	if (parent) {
+	if (literalUndefined) {
+		result = LITERAL_UNDEFINED;
+	}
+	else if (parent) {
 		result = applyTemplate(templates, parent, value);
 	}
 	else {
@@ -172,7 +191,10 @@ function appendResolvedPlaceholderAst(value, ast, argument) {
 function merge(a, b) {
 	let result;
 
-	if (typeof a === 'object') {
+	if (b === LITERAL_UNDEFINED) {
+		result = b;
+	}
+	else if (typeof a === 'object') {
 		if (Array.isArray(a)) {
 			if (b === undefined) {
 				result = a;
@@ -193,6 +215,10 @@ function merge(a, b) {
 
 			for (let [bKey, bVal] of Object.entries(b)) {
 				result[bKey] = merge(result[bKey], bVal);
+
+				if (result[bKey] === LITERAL_UNDEFINED) {
+					delete result[bKey];
+				}
 			}
 		}
 	}

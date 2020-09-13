@@ -16,6 +16,7 @@ blockEntries ->
 	%}
   | %nl {% () => ({ type: 'blankLine' }) %}
   | "@from" path {% ([from, path]) => ({ type: 'from', path }) %}
+  | "@undefined" {% () => ({ type: 'undefined' }) %}
 
 comment -> "#" %line:? %nl {% ([hash, line]) => ({
 	type: 'comment', value: line.value

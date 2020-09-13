@@ -1,0 +1,33 @@
+@template [a] {
+	[aa] aa val
+	[ab] {
+		[aba] aba val
+		[abb] abb val
+		[abc] abc val
+	}
+	[ac] {
+		- aca
+		- acb
+	}
+	[ad] ad val
+
+	<<aArg>>
+}
+
+[b] {
+	@from a
+
+	[aArg] {
+		[aa] baa val
+		[ab] {
+			[aba] baba val
+			[abc] {
+				@undefined
+			}
+		}
+		[ac] {
+			- baca
+			- bacb
+		}
+	}
+}
