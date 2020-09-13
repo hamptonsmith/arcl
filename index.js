@@ -73,9 +73,14 @@ function evaluateBlockContentsAst(ast, templates, topLevel, argument) {
 				parent = item.path;
 				break;
 			}
-			case 'multilineStringLine': {
+			case 'placeholderEntry': {
 				reachedContent = true;
-				value = appendMultilineStringLineAst(value, item, argument);
+				value = appendResolvedPlaceholderAst(value, item, argument);
+				break;
+			}
+			case 'stringExpression': {
+				reachedContent = true;
+				value = appendStringExpressionAst(value, item, argument);
 				break;
 			}
 			case 'taggedValue': {
@@ -105,6 +110,102 @@ function evaluateBlockContentsAst(ast, templates, topLevel, argument) {
 	}
 	else {
 		result = value;
+	}
+
+	return result;
+}
+
+function appendResolvedPlaceholderAst(value, ast, argument) {
+	const path = evaluatePathAst(ast.placeholder.path.components);
+	const resolvedArgument = lodash.get(argument, path);
+
+	if (!resolvedArgument) {
+		throw error('Must provide a ' + path.join('.') + ' value.', argument);
+	}
+
+	if (value === undefined) {
+		value = resolvedArgument;
+	}
+	else {
+		const typeofResolvedArgument = typeof resolvedArgument;
+		switch (typeofResolvedArgument) {
+			case 'object': {
+				if (Array.isArray(resolvedArgument)) {
+					if (!Array.isArray(value)) {
+						throw error('Cannot inject non-list ' + path.join('.')
+					 			+ ' in a list slot.', ast.path);
+					}
+
+					value = value.concat(resolvedArgument);
+				}
+				else {
+					if (typeof resolvedArgument !== 'object'
+							|| Array.isArray(resolvedArgument)) {
+						throw error('Cannot inject non-map ' + path.join('.')
+								+ ' in a map slot.', ast.path);
+					}
+
+					value = merge(value, resolvedArgument);
+				}
+				break;
+			}
+			case 'string': {
+				if (typeof value !== 'string') {
+					throw error('Cannot inject non-string ' + path.join('.')
+				 			+ ' in a string slot.', ast.path);
+				}
+
+				value += resolvedArgument;
+
+				break;
+			}
+			default: {
+				throw new Error('Unexpected resolved argument type: '
+						+ typeofResolvedArgument);
+			}
+		}
+	}
+
+	return value;
+}
+
+function merge(a, b) {
+	let result;
+
+	if (typeof a === 'object') {
+		if (Array.isArray(a)) {
+			if (b === undefined) {
+				result = a;
+			}
+			else if (Array.isArray(b)) {
+				result = b;
+			}
+			else {
+				throw error('Cannot merge non-array onto array.', b);
+			}
+		}
+		else {
+			result = Object.assign({}, a);
+
+			if (typeof b !== 'object' || Array.isArray(b)) {
+				throw error('Cannot merge non-map onto map.', b);
+			}
+
+			for (let [bKey, bVal] of Object.entries(b)) {
+				result[bKey] = merge(result[bKey], bVal);
+			}
+		}
+	}
+	else if (typeof a === 'string') {
+		if (b === undefined) {
+			result = a;
+		}
+		else if (typeof b === 'string') {
+			result = b;
+		}
+		else {
+			throw error('Cannont merge non-string onto string.', b);
+		}
 	}
 
 	return result;
@@ -144,14 +245,14 @@ function evaluatePathAst(path) {
 	});
 }
 
-function appendMultilineStringLineAst(result, ast, argument) {
+function appendStringExpressionAst(result, ast, argument) {
 	if (Array.isArray(result)) {
-		throw error(
-				'Cannot append a string fragment to a list.', result.key.token);
+		throw error('Cannot append a string expression to a list.',
+				result.key.token);
 	}
 
 	if (typeof result === 'object') {
-		throw error('Cannot append a string fragment to a dictionary.',
+		throw error('Cannot append a string expression to a dictionary.',
 				result.key.token);
 	}
 
@@ -159,7 +260,7 @@ function appendMultilineStringLineAst(result, ast, argument) {
 		result = '';
 	}
 
-	result = appendStringFragment(result, ast, argument);
+	result = appendStringExpression(result, ast, argument);
 
 	return result;
 }
@@ -214,42 +315,21 @@ function evaluateKeyAst(ast) {
 		case 'multilineKey': {
 			result = '';
 
-			let newLine = false;
-			for (let line of ast.stringExpressionLines) {
-				switch (line.type) {
-					case 'comment': {
-						// This space intentionally left blank.
-						break;
-					}
-					case 'multilineStringLine': {
-						for (let element of line.elements) {
-							switch (element.type) {
-								case 'plus': {
-									newLine = false;
-									break;
-								}
-								case 'stringLiteral': {
-									if (newLine) {
-										result += '\n';
-										newLine = false;
-									}
+			for (let line of ast.entries) {
+				if (result != '') {
+					result += '\n';
+				}
 
-									result += trimQuotes(element.value);
-									newLine = true;
-									break;
-								}
-								default: {
-									throw new Error('Unknown '
-											+ 'multilineStringLine type: '
-											+ element.type)
-								}
-							}
+				for (let element of line.components) {
+					switch (element.type) {
+						case 'stringLiteral': {
+							result += trimQuotes(element.value);
+							break;
 						}
-						break;
-					}
-					default: {
-						throw new Error('Unknown multiline key line type: '
-								+ line.type);
+						default: {
+							throw new Error('Unknown string expression ' +
+									'component type: ' + element.type);
+						}
 					}
 				}
 			}
@@ -289,13 +369,15 @@ function evaluateValueAst(ast, templates, argument) {
 	return result;
 }
 
-function appendStringFragment(result, ast, argument) {
-	let newLine = result.length !== 0;
+function appendStringExpression(result, ast, argument) {
+	if (result !== '') {
+		result += '\n';
+	}
 
-	for (let element of ast.elements) {
-		switch (element.type) {
+	for (let component of ast.components) {
+		switch (component.type) {
 			case 'placeholder': {
-				const path = evaluatePathAst(element.path.components);
+				const path = evaluatePathAst(component.path.components);
 				const value = lodash.get(argument, path);
 
 				if (!value) {
@@ -308,30 +390,16 @@ function appendStringFragment(result, ast, argument) {
 							'must be a string.', argument);
 				}
 
-				if (newLine) {
-					result += '\n';
-					newLine = false;
-				}
-
 				result += value;
 				break;
 			}
-			case 'plus': {
-				newLine = false;
-				break;
-			}
 			case 'stringLiteral': {
-				if (newLine) {
-					result += '\n';
-					newLine = false;
-				}
-
-				result += trimQuotes(element.value);
+				result += trimQuotes(component.value);
 				break;
 			}
 			default: {
 				throw new Error('Unknown string fragment element type: '
-						+ element.type);
+						+ component.type);
 			}
 		}
 	}

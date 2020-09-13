@@ -10,7 +10,10 @@ blockEntries ->
 	comment {% ([comment]) => comment %}
   | taggedEntry {% ([taggedEntry]) => taggedEntry %}
   | untaggedEntry {% ([untaggedEntry]) => untaggedEntry %}
-  | stringExpressionLine {% ([stringExpressionLine]) => stringExpressionLine %}
+  | placeholderEntry {% ([placeholderEntry]) => placeholderEntry %}
+  | stringExpressionEntry {%
+	  ([stringExpressionEntry]) => stringExpressionEntry
+	%}
   | %nl {% () => ({ type: 'blankLine' }) %}
   | "@from" path {% ([from, path]) => ({ type: 'from', path }) %}
 
@@ -18,11 +21,15 @@ comment -> "#" %line:? %nl {% ([hash, line]) => ({
 	type: 'comment', value: line.value
 })%}
 
+eol -> %nl | comment
+
 key ->
-	%line:? %nl (stringExpressionLine | comment):* {%
+	%line:? %nl (stringExpressionEntry | eol):* {%
 			([ line, nl, stringLines ]) => ({
 		type: 'multilineKey',
-		stringExpressionLines: stringLines.map(([line]) => line)
+		entries: stringLines
+			.map(([e]) => e)
+			.filter(e => e.type === 'stringExpression')
 	})%}
   | %simpleContent {% ([simpleContent]) => ({
   		type: 'simpleKey',
@@ -47,13 +54,27 @@ placeholder -> "<<" path ">>" {% ([open, path, close]) => ({
 	path
 }) %}
 
-stringExpressionLine ->
-	(%stringLiteral | "+" | placeholder):+ (comment | %nl) {%
-			([elements, comment, nl]) => ({
-				type: 'multilineStringLine',
-				comment,
-				elements: elements.map(([element]) => element)
-			})%}
+placeholderEntry -> placeholder %nl {% ([placeholder, nl]) => ({
+	type: 'placeholderEntry',
+	placeholder
+}) %}
+
+stringExpressionComponent -> (%stringLiteral | placeholder) {% ([[x]]) => x %}
+
+stringExpressionEntry ->
+	placeholder stringExpressionTail eol {% ([placeholder, others, eol]) => ({
+		type: 'stringExpression',
+		components: [placeholder].concat(others)
+	})%}
+  | %stringLiteral stringExpressionTail:? eol {% ([first, others, eol]) => ({
+	    type: 'stringExpression',
+		components: [first].concat(others || [])
+    })%}
+
+stringExpressionTail -> (eol:* "+" eol:* stringExpressionComponent):+ {%
+	([components]) =>
+		components.map(([eol1, plus, eol2, component]) => component)
+%}
 
 taggedEntry -> "@template":? "[" key "]" value {%
 		([templateAnnotation, open, key, close, value]) => ({

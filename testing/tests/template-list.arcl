@@ -1,0 +1,57 @@
+@template [ta] {
+	- ta 1
+	- ta 2
+
+	<<aArg>>
+}
+
+@template [tb] {
+	<<bArg>>
+
+	- tb 1
+	- tb 2
+}
+
+@template [tc] {
+	- tc 1
+
+	<<cArg>>
+
+	- tc 2
+}
+
+@template [td] {
+	<<dArg>>
+}
+
+[a] {
+	@from ta
+	[aArg] {
+		- a 1
+		- a 2
+	}
+}
+
+[b] {
+	@from tb
+	[bArg] {
+		- b 1
+		- b 2
+	}
+}
+
+[c] {
+	@from tc
+	[cArg] {
+		- c 1
+		- c 2
+	}
+}
+
+[d] {
+	@from td
+	[dArg] {
+		- d 1
+		- d 2
+	}
+}
